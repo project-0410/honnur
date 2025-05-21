@@ -1,9 +1,10 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -20,85 +21,264 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format, startOfWeek, addDays } from "date-fns";
+import * as db from "@/services/database";
 
-// Sample recipe data
-const recipeOptions = [
-  { id: 1, name: "Pasta Primavera" },
-  { id: 2, name: "Greek Salad" },
-  { id: 3, name: "Berry Smoothie" },
-  { id: 4, name: "Chicken Curry" },
-  { id: 5, name: "Avocado Toast" },
-  { id: 6, name: "Chocolate Brownie" },
-];
+// Interface definitions
+interface Recipe {
+  id: number;
+  name: string;
+}
 
-// Sample meal plan data
-const initialPlannedMeals = {
-  "2025-05-21": {
-    breakfast: { id: 5, name: "Avocado Toast" },
-    lunch: { id: 2, name: "Greek Salad" },
-    dinner: { id: 1, name: "Pasta Primavera" }
-  },
-  "2025-05-22": {
-    breakfast: { id: 3, name: "Berry Smoothie" },
-    lunch: null,
-    dinner: { id: 4, name: "Chicken Curry" }
-  },
-  "2025-05-23": {
-    breakfast: null,
-    lunch: { id: 2, name: "Greek Salad" },
-    dinner: null
-  }
-};
+interface MealType {
+  id: number;
+  name: string;
+}
 
-const mealTypes = ["breakfast", "lunch", "dinner"];
+interface PlannedMeal {
+  id?: number;
+  recipe: Recipe | null;
+}
+
+interface DailyMeals {
+  [mealType: string]: PlannedMeal | null;
+}
+
+interface WeeklyMeals {
+  [date: string]: DailyMeals;
+}
 
 const MealPlanner = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [plannedMeals, setPlannedMeals] = useState(initialPlannedMeals);
+  const [plannedMeals, setPlannedMeals] = useState<WeeklyMeals>({});
+  const [recipeOptions, setRecipeOptions] = useState<Recipe[]>([]);
+  const [mealTypes, setMealTypes] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [currentEditMeal, setCurrentEditMeal] = useState({ date: "", type: "" });
+  const [loading, setLoading] = useState(true);
+  const [userId] = useState<number>(1); // Default user ID for demo purposes
+  const [userPlanId, setUserPlanId] = useState<number>(1); // Default plan ID
+  const { toast } = useToast();
 
   const formatDateKey = (date: Date) => format(date, "yyyy-MM-dd");
 
-  const handleSelectMeal = (recipeId: number, recipeName: string) => {
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load meal types
+        const mealTypesData = await db.getMealTypes();
+        setMealTypes(mealTypesData.map(mt => mt.name.toLowerCase()));
+        
+        // Load recipes
+        const recipesData = await db.getRecipes();
+        setRecipeOptions(recipesData.map(r => ({ 
+          id: r.recipe_id, 
+          name: r.title 
+        })));
+        
+        // Get user's default meal plan
+        const userPlan = await db.getUserDefaultPlan(userId);
+        if (userPlan) {
+          setUserPlanId(userPlan.plan_id);
+        }
+        
+        // Load weekly meal plan data
+        await loadWeeklyMealPlan(selectedDate);
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load meal plan data. Using sample data instead.",
+          variant: "destructive",
+        });
+        // Use sample data as fallback
+        useSampleData();
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      loadWeeklyMealPlan(selectedDate);
+    }
+  }, [selectedDate]);
+
+  const loadWeeklyMealPlan = async (date: Date) => {
+    try {
+      const weekStart = startOfWeek(date, { weekStartsOn: 0 });
+      const weekEnd = addDays(weekStart, 6);
+      
+      const startDateStr = formatDateKey(weekStart);
+      const endDateStr = formatDateKey(weekEnd);
+      
+      const mealsData = await db.getMealPlans(userId, startDateStr, endDateStr);
+      
+      // Process meal plan data into the format our component uses
+      const formattedMeals: WeeklyMeals = {};
+      
+      mealsData.forEach(meal => {
+        const dateStr = meal.day_date;
+        const mealTypeStr = meal.meal_type.toLowerCase();
+        
+        if (!formattedMeals[dateStr]) {
+          formattedMeals[dateStr] = {};
+        }
+        
+        formattedMeals[dateStr][mealTypeStr] = {
+          id: meal.planned_meal_id,
+          recipe: {
+            id: meal.recipe_id,
+            name: meal.recipe_name
+          }
+        };
+      });
+      
+      setPlannedMeals(formattedMeals);
+    } catch (error) {
+      console.error("Failed to load meal plan data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load meal plan data.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const useSampleData = () => {
+    // Sample recipe data as fallback
+    setRecipeOptions([
+      { id: 1, name: "Pasta Primavera" },
+      { id: 2, name: "Greek Salad" },
+      { id: 3, name: "Berry Smoothie" },
+      { id: 4, name: "Chicken Curry" },
+      { id: 5, name: "Avocado Toast" },
+      { id: 6, name: "Chocolate Brownie" },
+    ]);
+    
+    // Sample meal types as fallback
+    setMealTypes(["breakfast", "lunch", "dinner"]);
+    
+    // Sample planned meals as fallback
+    setPlannedMeals({
+      "2025-05-21": {
+        breakfast: { recipe: { id: 5, name: "Avocado Toast" } },
+        lunch: { recipe: { id: 2, name: "Greek Salad" } },
+        dinner: { recipe: { id: 1, name: "Pasta Primavera" } }
+      },
+      "2025-05-22": {
+        breakfast: { recipe: { id: 3, name: "Berry Smoothie" } },
+        lunch: null,
+        dinner: { recipe: { id: 4, name: "Chicken Curry" } }
+      },
+      "2025-05-23": {
+        breakfast: null,
+        lunch: { recipe: { id: 2, name: "Greek Salad" } },
+        dinner: null
+      }
+    });
+  };
+
+  const handleSelectMeal = async (recipeId: number, recipeName: string) => {
     const { date, type } = currentEditMeal;
     if (!date || !type) return;
     
-    setPlannedMeals(prev => {
-      const dateFormatted = date;
-      const existingDateMeals = prev[dateFormatted] || {};
+    try {
+      const mealTypesData = await db.getMealTypes();
+      const mealType = mealTypesData.find(mt => mt.name.toLowerCase() === type);
       
-      return {
-        ...prev,
-        [dateFormatted]: {
-          ...existingDateMeals,
-          [type]: { id: recipeId, name: recipeName }
-        }
-      };
-    });
-    setOpen(false);
+      if (mealType) {
+        await db.addPlannedMeal(userPlanId, recipeId, mealType.type_id, date);
+        
+        setPlannedMeals(prev => {
+          const dateFormatted = date;
+          const existingDateMeals = prev[dateFormatted] || {};
+          
+          return {
+            ...prev,
+            [dateFormatted]: {
+              ...existingDateMeals,
+              [type]: { recipe: { id: recipeId, name: recipeName } }
+            }
+          };
+        });
+        
+        toast({
+          title: "Meal added",
+          description: `${recipeName} added to ${type} on ${format(new Date(date), "EEEE, MMMM d")}`,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to add meal:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add meal to plan.",
+        variant: "destructive",
+      });
+    } finally {
+      setOpen(false);
+    }
   };
 
-  const handleRemoveMeal = () => {
+  const handleRemoveMeal = async () => {
     const { date, type } = currentEditMeal;
     if (!date || !type) return;
     
-    setPlannedMeals(prev => {
-      const dateFormatted = date;
-      const existingDateMeals = prev[dateFormatted] || {};
-      
-      return {
-        ...prev,
-        [dateFormatted]: {
-          ...existingDateMeals,
-          [type]: null
-        }
-      };
-    });
+    const meal = getMealForDay(date, type);
+    
+    if (meal?.id) {
+      try {
+        await db.removePlannedMeal(meal.id);
+        
+        setPlannedMeals(prev => {
+          const dateFormatted = date;
+          const existingDateMeals = prev[dateFormatted] || {};
+          
+          return {
+            ...prev,
+            [dateFormatted]: {
+              ...existingDateMeals,
+              [type]: null
+            }
+          };
+        });
+        
+        toast({
+          title: "Meal removed",
+          description: `Removed ${meal.recipe?.name} from ${type} on ${format(new Date(date), "EEEE, MMMM d")}`,
+        });
+      } catch (error) {
+        console.error("Failed to remove meal:", error);
+        toast({
+          title: "Error",
+          description: "Failed to remove meal from plan.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Fallback for sample data or if meal doesn't have ID
+      setPlannedMeals(prev => {
+        const dateFormatted = date;
+        const existingDateMeals = prev[dateFormatted] || {};
+        
+        return {
+          ...prev,
+          [dateFormatted]: {
+            ...existingDateMeals,
+            [type]: null
+          }
+        };
+      });
+    }
+    
     setOpen(false);
   };
 
-  const getMealForDay = (date: string, mealType: string) => {
+  const getMealForDay = (date: string, mealType: string): PlannedMeal | null => {
     return plannedMeals[date]?.[mealType] || null;
   };
 
