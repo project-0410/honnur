@@ -1,10 +1,9 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -21,195 +20,85 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format, startOfWeek, addDays } from "date-fns";
-import * as db from "@/services/database";
 
-// Interface definitions
-interface Recipe {
-  id: number;
-  name: string;
-}
+// Sample recipe data
+const recipeOptions = [
+  { id: 1, name: "Pasta Primavera" },
+  { id: 2, name: "Greek Salad" },
+  { id: 3, name: "Berry Smoothie" },
+  { id: 4, name: "Chicken Curry" },
+  { id: 5, name: "Avocado Toast" },
+  { id: 6, name: "Chocolate Brownie" },
+];
 
-interface MealType {
-  id: number;
-  name: string;
-}
+// Sample meal plan data
+const initialPlannedMeals = {
+  "2025-05-21": {
+    breakfast: { id: 5, name: "Avocado Toast" },
+    lunch: { id: 2, name: "Greek Salad" },
+    dinner: { id: 1, name: "Pasta Primavera" }
+  },
+  "2025-05-22": {
+    breakfast: { id: 3, name: "Berry Smoothie" },
+    lunch: null,
+    dinner: { id: 4, name: "Chicken Curry" }
+  },
+  "2025-05-23": {
+    breakfast: null,
+    lunch: { id: 2, name: "Greek Salad" },
+    dinner: null
+  }
+};
 
-interface PlannedMeal {
-  id?: number;
-  recipe: Recipe | null;
-}
-
-interface DailyMeals {
-  [mealType: string]: PlannedMeal | null;
-}
-
-interface WeeklyMeals {
-  [date: string]: DailyMeals;
-}
+const mealTypes = ["breakfast", "lunch", "dinner"];
 
 const MealPlanner = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [plannedMeals, setPlannedMeals] = useState<WeeklyMeals>({});
-  const [recipeOptions, setRecipeOptions] = useState<Recipe[]>([]);
-  const [mealTypes, setMealTypes] = useState<string[]>([]);
+  const [plannedMeals, setPlannedMeals] = useState(initialPlannedMeals);
   const [open, setOpen] = useState(false);
   const [currentEditMeal, setCurrentEditMeal] = useState({ date: "", type: "" });
-  const [loading, setLoading] = useState(true);
-  const [userId] = useState<number>(1); // Default user ID for demo purposes
-  const [userPlanId, setUserPlanId] = useState<number>(1); // Default plan ID
-  const { toast } = useToast();
 
   const formatDateKey = (date: Date) => format(date, "yyyy-MM-dd");
 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        setLoading(true);
-        
-        // Use sample data instead of trying to connect to MySQL directly
-        // MySQL can't run in the browser environment
-        useSampleData();
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadInitialData();
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      // Instead of trying to load from MySQL, just update the week view
-      // with our sample data when the date changes
-      updateWeekView(selectedDate);
-    }
-  }, [selectedDate]);
-
-  // Function to update the weekly view based on the selected date
-  const updateWeekView = (date: Date) => {
-    // This is a simpler function that just ensures we're showing
-    // the right week of data based on the selected date
-    const weekStart = startOfWeek(date, { weekStartsOn: 0 });
-    const weekEnd = addDays(weekStart, 6);
-    
-    // No need to fetch from database, we're using sample data
-    console.log(`Updating week view for: ${format(weekStart, "yyyy-MM-dd")} to ${format(weekEnd, "yyyy-MM-dd")}`);
-  };
-
-  const loadWeeklyMealPlan = async (date: Date) => {
-    // This function is now a placeholder since we're using sample data
-    // In a real application, this would be where we'd call an API
-    updateWeekView(date);
-  };
-
-  const useSampleData = () => {
-    // Sample recipe data
-    setRecipeOptions([
-      { id: 1, name: "Pasta Primavera" },
-      { id: 2, name: "Greek Salad" },
-      { id: 3, name: "Berry Smoothie" },
-      { id: 4, name: "Chicken Curry" },
-      { id: 5, name: "Avocado Toast" },
-      { id: 6, name: "Chocolate Brownie" },
-    ]);
-    
-    // Sample meal types
-    setMealTypes(["breakfast", "lunch", "dinner"]);
-    
-    // Sample planned meals
-    setPlannedMeals({
-      "2025-05-21": {
-        breakfast: { recipe: { id: 5, name: "Avocado Toast" } },
-        lunch: { recipe: { id: 2, name: "Greek Salad" } },
-        dinner: { recipe: { id: 1, name: "Pasta Primavera" } }
-      },
-      "2025-05-22": {
-        breakfast: { recipe: { id: 3, name: "Berry Smoothie" } },
-        lunch: null,
-        dinner: { recipe: { id: 4, name: "Chicken Curry" } }
-      },
-      "2025-05-23": {
-        breakfast: null,
-        lunch: { recipe: { id: 2, name: "Greek Salad" } },
-        dinner: null
-      }
-    });
-  };
-
-  const handleSelectMeal = async (recipeId: number, recipeName: string) => {
+  const handleSelectMeal = (recipeId: number, recipeName: string) => {
     const { date, type } = currentEditMeal;
     if (!date || !type) return;
     
-    try {
-      // Instead of using the database directly, we'll just update our state
-      setPlannedMeals(prev => {
-        const dateFormatted = date;
-        const existingDateMeals = prev[dateFormatted] || {};
-        
-        return {
-          ...prev,
-          [dateFormatted]: {
-            ...existingDateMeals,
-            [type]: { recipe: { id: recipeId, name: recipeName } }
-          }
-        };
-      });
+    setPlannedMeals(prev => {
+      const dateFormatted = date;
+      const existingDateMeals = prev[dateFormatted] || {};
       
-      toast({
-        title: "Meal added",
-        description: `${recipeName} added to ${type} on ${format(new Date(date), "EEEE, MMMM d")}`,
-      });
-    } catch (error) {
-      console.error("Failed to add meal:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add meal to plan.",
-        variant: "destructive",
-      });
-    } finally {
-      setOpen(false);
-    }
-  };
-
-  const handleRemoveMeal = async () => {
-    const { date, type } = currentEditMeal;
-    if (!date || !type) return;
-    
-    try {
-      // Update state directly instead of using the database
-      setPlannedMeals(prev => {
-        const dateFormatted = date;
-        const existingDateMeals = prev[dateFormatted] || {};
-        
-        // Get the meal to show in the toast notification
-        const meal = getMealForDay(date, type);
-        
-        toast({
-          title: "Meal removed",
-          description: `Removed ${meal?.recipe?.name || 'meal'} from ${type} on ${format(new Date(date), "EEEE, MMMM d")}`,
-        });
-        
-        return {
-          ...prev,
-          [dateFormatted]: {
-            ...existingDateMeals,
-            [type]: null
-          }
-        };
-      });
-    } catch (error) {
-      console.error("Failed to remove meal:", error);
-      toast({
-        title: "Error",
-        description: "Failed to remove meal from plan.",
-        variant: "destructive",
-      });
-    }
-    
+      return {
+        ...prev,
+        [dateFormatted]: {
+          ...existingDateMeals,
+          [type]: { id: recipeId, name: recipeName }
+        }
+      };
+    });
     setOpen(false);
   };
 
-  const getMealForDay = (date: string, mealType: string): PlannedMeal | null => {
+  const handleRemoveMeal = () => {
+    const { date, type } = currentEditMeal;
+    if (!date || !type) return;
+    
+    setPlannedMeals(prev => {
+      const dateFormatted = date;
+      const existingDateMeals = prev[dateFormatted] || {};
+      
+      return {
+        ...prev,
+        [dateFormatted]: {
+          ...existingDateMeals,
+          [type]: null
+        }
+      };
+    });
+    setOpen(false);
+  };
+
+  const getMealForDay = (date: string, mealType: string) => {
     return plannedMeals[date]?.[mealType] || null;
   };
 
@@ -308,7 +197,7 @@ const MealPlanner = () => {
                       }`}
                     >
                       <CardContent className="p-2 h-full flex flex-col">
-                        {meal?.recipe ? (
+                        {meal ? (
                           <div 
                             className="text-sm cursor-pointer flex-1 flex items-center justify-center text-center hover:bg-muted rounded p-1"
                             onClick={() => {
@@ -316,7 +205,7 @@ const MealPlanner = () => {
                               setOpen(true);
                             }}
                           >
-                            {meal.recipe.name}
+                            {meal.name}
                           </div>
                         ) : (
                           <div
@@ -345,15 +234,15 @@ const MealPlanner = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {getMealForDay(currentEditMeal.date, currentEditMeal.type)?.recipe 
+              {getMealForDay(currentEditMeal.date, currentEditMeal.type) 
                 ? "Edit Meal" 
                 : "Add a Meal"}
             </DialogTitle>
             <DialogDescription>
-              {currentEditMeal.date ? format(
-                new Date(currentEditMeal.date),
+              {format(
+                currentEditMeal.date ? new Date(currentEditMeal.date) : new Date(), 
                 "EEEE, MMMM d"
-              ) : ""} - {currentEditMeal.type}
+              )} - {currentEditMeal.type}
             </DialogDescription>
           </DialogHeader>
 
@@ -376,7 +265,7 @@ const MealPlanner = () => {
               </SelectContent>
             </Select>
 
-            {getMealForDay(currentEditMeal.date, currentEditMeal.type)?.recipe && (
+            {getMealForDay(currentEditMeal.date, currentEditMeal.type) && (
               <Button variant="destructive" onClick={handleRemoveMeal} className="w-full">
                 Remove Meal
               </Button>
