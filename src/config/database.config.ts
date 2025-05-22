@@ -1,13 +1,16 @@
 
-// This file is now just for reference, as we cannot use MySQL directly in the browser
+// Database configuration for the backend
 
 export const databaseConfig = {
-  // These values are just placeholders since we can't connect to MySQL from the browser
+  // These values should match your MySQL server configuration
   host: 'localhost',
   user: 'root',
   password: '',
   database: 'freshmeal_planner'
 };
 
-// In a real application, we would need a backend server to connect to MySQL
-// The frontend would make API calls to the backend, which would then interact with the database
+// Frontend API configuration
+export const apiConfig = {
+  baseUrl: 'http://localhost:5000/api',
+  defaultUserId: 1
+};
