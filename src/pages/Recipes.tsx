@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,66 +17,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Filter, Plus, Search } from "lucide-react";
-
-const sampleRecipes = [
-  { 
-    id: 1, 
-    name: "Pasta Primavera", 
-    image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHBhc3RhfGVufDB8fDB8fHww&auto=format&fit=crop&w=600&q=60",
-    category: "Main Course",
-    time: "30 min",
-    description: "Fresh vegetables and pasta in a light cream sauce"
-  },
-  { 
-    id: 2, 
-    name: "Greek Salad", 
-    image: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8Z3JlZWslMjBzYWxhZHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=600&q=60",
-    category: "Salad",
-    time: "15 min",
-    description: "Traditional Greek salad with feta cheese and olives"
-  },
-  { 
-    id: 3, 
-    name: "Berry Smoothie", 
-    image: "https://images.unsplash.com/photo-1553530666-ba11a90061fc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YmVycnklMjBzbW9vdGhpZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=600&q=60",
-    category: "Beverage",
-    time: "5 min",
-    description: "Refreshing mixed berry smoothie with yogurt"
-  },
-  { 
-    id: 4, 
-    name: "Chicken Curry", 
-    image: "https://images.unsplash.com/photo-1604952187418-2bb4312d71ca?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y2hpY2tlbiUyMGN1cnJ5fGVufDB8fDB8fHww&auto=format&fit=crop&w=600&q=60",
-    category: "Main Course",
-    time: "45 min",
-    description: "Spicy chicken curry with rich coconut sauce"
-  },
-  { 
-    id: 5, 
-    name: "Avocado Toast", 
-    image: "https://images.unsplash.com/photo-1588137378633-56c3392811c0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8YXZvY2FkbyUyMHRvYXN0fGVufDB8fDB8fHww&auto=format&fit=crop&w=600&q=60",
-    category: "Breakfast",
-    time: "10 min",
-    description: "Creamy avocado spread on toasted sourdough bread"
-  },
-  { 
-    id: 6, 
-    name: "Chocolate Brownie", 
-    image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YnJvd25pZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=600&q=60",
-    category: "Dessert",
-    time: "40 min",
-    description: "Rich, fudgy chocolate brownies with walnuts"
-  }
-];
+import { storageService, Recipe } from "@/services/storage";
 
 const categories = ["All", "Main Course", "Salad", "Breakfast", "Dessert", "Beverage"];
 
 const Recipes = () => {
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("name");
+
+  useEffect(() => {
+    loadRecipes();
+  }, []);
+
+  const loadRecipes = () => {
+    const loadedRecipes = storageService.getRecipes();
+    setRecipes(loadedRecipes);
+  };
   
-  const filteredRecipes = sampleRecipes.filter(recipe => {
+  const filteredRecipes = recipes.filter(recipe => {
     const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           recipe.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All" || recipe.category === selectedCategory;
@@ -87,8 +47,7 @@ const Recipes = () => {
     if (sortBy === "name") {
       return a.name.localeCompare(b.name);
     } else if (sortBy === "time") {
-      // Simple string comparison for this example
-      return a.time.localeCompare(b.time);
+      return a.prepTime.localeCompare(b.prepTime);
     }
     return 0;
   });
@@ -141,7 +100,7 @@ const Recipes = () => {
                 Recipe Name
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSortBy("time")}>
-                Cooking Time
+                Prep Time
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -164,7 +123,7 @@ const Recipes = () => {
                   <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                     {recipe.category}
                   </span>
-                  <span className="text-xs text-muted-foreground">{recipe.time}</span>
+                  <span className="text-xs text-muted-foreground">{recipe.prepTime}</span>
                 </div>
                 <h3 className="font-semibold text-lg mb-1">{recipe.name}</h3>
                 <p className="text-sm text-muted-foreground line-clamp-2">{recipe.description}</p>

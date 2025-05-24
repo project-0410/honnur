@@ -1,6 +1,6 @@
 
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -10,7 +10,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -20,43 +19,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format, startOfWeek, addDays } from "date-fns";
-
-// Sample recipe data
-const recipeOptions = [
-  { id: 1, name: "Pasta Primavera" },
-  { id: 2, name: "Greek Salad" },
-  { id: 3, name: "Berry Smoothie" },
-  { id: 4, name: "Chicken Curry" },
-  { id: 5, name: "Avocado Toast" },
-  { id: 6, name: "Chocolate Brownie" },
-];
-
-// Sample meal plan data
-const initialPlannedMeals = {
-  "2025-05-21": {
-    breakfast: { id: 5, name: "Avocado Toast" },
-    lunch: { id: 2, name: "Greek Salad" },
-    dinner: { id: 1, name: "Pasta Primavera" }
-  },
-  "2025-05-22": {
-    breakfast: { id: 3, name: "Berry Smoothie" },
-    lunch: null,
-    dinner: { id: 4, name: "Chicken Curry" }
-  },
-  "2025-05-23": {
-    breakfast: null,
-    lunch: { id: 2, name: "Greek Salad" },
-    dinner: null
-  }
-};
+import { storageService, Recipe, MealPlan } from "@/services/storage";
+import { useToast } from "@/hooks/use-toast";
 
 const mealTypes = ["breakfast", "lunch", "dinner"];
 
 const MealPlanner = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [plannedMeals, setPlannedMeals] = useState(initialPlannedMeals);
+  const [plannedMeals, setPlannedMeals] = useState<MealPlan>({});
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [open, setOpen] = useState(false);
   const [currentEditMeal, setCurrentEditMeal] = useState({ date: "", type: "" });
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = () => {
+    const loadedMealPlans = storageService.getMealPlans();
+    const loadedRecipes = storageService.getRecipes();
+    setPlannedMeals(loadedMealPlans);
+    setRecipes(loadedRecipes);
+  };
 
   const formatDateKey = (date: Date) => format(date, "yyyy-MM-dd");
 
@@ -64,17 +49,15 @@ const MealPlanner = () => {
     const { date, type } = currentEditMeal;
     if (!date || !type) return;
     
-    setPlannedMeals(prev => {
-      const dateFormatted = date;
-      const existingDateMeals = prev[dateFormatted] || {};
-      
-      return {
-        ...prev,
-        [dateFormatted]: {
-          ...existingDateMeals,
-          [type]: { id: recipeId, name: recipeName }
-        }
-      };
+    const selectedRecipe = recipes.find(r => r.id === recipeId);
+    if (!selectedRecipe) return;
+
+    storageService.addMealToPlan(date, type, selectedRecipe);
+    loadData(); // Reload data to reflect changes
+    
+    toast({
+      title: "Meal Added",
+      description: `${recipeName} has been added to your ${type} for ${format(new Date(date), "MMMM d")}.`,
     });
     setOpen(false);
   };
@@ -83,17 +66,12 @@ const MealPlanner = () => {
     const { date, type } = currentEditMeal;
     if (!date || !type) return;
     
-    setPlannedMeals(prev => {
-      const dateFormatted = date;
-      const existingDateMeals = prev[dateFormatted] || {};
-      
-      return {
-        ...prev,
-        [dateFormatted]: {
-          ...existingDateMeals,
-          [type]: null
-        }
-      };
+    storageService.removeMealFromPlan(date, type);
+    loadData(); // Reload data to reflect changes
+    
+    toast({
+      title: "Meal Removed",
+      description: `Meal has been removed from your ${type} for ${format(new Date(date), "MMMM d")}.`,
     });
     setOpen(false);
   };
@@ -248,7 +226,7 @@ const MealPlanner = () => {
 
           <div className="space-y-4">
             <Select onValueChange={(value) => {
-              const selected = recipeOptions.find(r => r.id === Number(value));
+              const selected = recipes.find(r => r.id === Number(value));
               if (selected) {
                 handleSelectMeal(selected.id, selected.name);
               }
@@ -257,7 +235,7 @@ const MealPlanner = () => {
                 <SelectValue placeholder="Select a recipe" />
               </SelectTrigger>
               <SelectContent>
-                {recipeOptions.map((recipe) => (
+                {recipes.map((recipe) => (
                   <SelectItem key={recipe.id} value={recipe.id.toString()}>
                     {recipe.name}
                   </SelectItem>

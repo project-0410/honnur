@@ -1,65 +1,74 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Trash } from "lucide-react";
-
-interface GroceryItem {
-  id: number;
-  name: string;
-  completed: boolean;
-  category: string;
-}
-
-const initialItems: GroceryItem[] = [
-  { id: 1, name: "Pasta", completed: false, category: "Dry Goods" },
-  { id: 2, name: "Bell pepper", completed: false, category: "Produce" },
-  { id: 3, name: "Zucchini", completed: false, category: "Produce" },
-  { id: 4, name: "Cherry tomatoes", completed: false, category: "Produce" },
-  { id: 5, name: "Heavy cream", completed: false, category: "Dairy" },
-  { id: 6, name: "Parmesan cheese", completed: true, category: "Dairy" },
-  { id: 7, name: "Olive oil", completed: true, category: "Oils & Vinegars" },
-];
+import { storageService, ShoppingItem } from "@/services/storage";
+import { useToast } from "@/hooks/use-toast";
 
 const ShoppingList = () => {
-  const [groceryItems, setGroceryItems] = useState<GroceryItem[]>(initialItems);
+  const [groceryItems, setGroceryItems] = useState<ShoppingItem[]>([]);
   const [newItemName, setNewItemName] = useState("");
   const [newItemCategory, setNewItemCategory] = useState("Produce");
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadShoppingList();
+  }, []);
+
+  const loadShoppingList = () => {
+    const items = storageService.getShoppingList();
+    setGroceryItems(items);
+  };
 
   const addItem = () => {
     if (newItemName.trim() === "") return;
     
-    const newItem: GroceryItem = {
-      id: Date.now(),
-      name: newItemName.trim(),
-      completed: false,
-      category: newItemCategory,
-    };
-    
-    setGroceryItems([...groceryItems, newItem]);
+    storageService.addShoppingItem(newItemName, newItemCategory);
+    loadShoppingList();
     setNewItemName("");
+    
+    toast({
+      title: "Item Added",
+      description: `${newItemName} has been added to your shopping list.`,
+    });
   };
 
   const toggleItemCompletion = (id: number) => {
-    setGroceryItems(
-      groceryItems.map(item => 
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
-    );
+    const item = groceryItems.find(item => item.id === id);
+    if (item) {
+      storageService.updateShoppingItem(id, { completed: !item.completed });
+      loadShoppingList();
+    }
   };
 
   const removeItem = (id: number) => {
-    setGroceryItems(groceryItems.filter(item => item.id !== id));
+    const item = groceryItems.find(item => item.id === id);
+    storageService.deleteShoppingItem(id);
+    loadShoppingList();
+    
+    if (item) {
+      toast({
+        title: "Item Removed",
+        description: `${item.name} has been removed from your shopping list.`,
+      });
+    }
   };
 
   const clearCompleted = () => {
-    setGroceryItems(groceryItems.filter(item => !item.completed));
+    storageService.clearCompletedShoppingItems();
+    loadShoppingList();
+    
+    toast({
+      title: "Completed Items Cleared",
+      description: "All completed items have been removed from your shopping list.",
+    });
   };
 
   // Group items by category
-  const itemsByCategory = groceryItems.reduce<Record<string, GroceryItem[]>>(
+  const itemsByCategory = groceryItems.reduce<Record<string, ShoppingItem[]>>(
     (acc, item) => {
       if (!acc[item.category]) {
         acc[item.category] = [];
