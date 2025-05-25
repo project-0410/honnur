@@ -155,6 +155,7 @@ class SupabaseService {
   }
 
   async updateRecipe(id: string, updates: Partial<Recipe>): Promise<Recipe | null> {
+    // Note: updated_at will be automatically updated by the database trigger
     const { data, error } = await supabase
       .from('recipes')
       .update({
@@ -190,17 +191,26 @@ class SupabaseService {
   }
 
   async deleteRecipe(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('recipes')
-      .delete()
-      .eq('id', id);
-    
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting recipe:', error);
+        // Check if it's the meal plan constraint error
+        if (error.message.includes('meal plan')) {
+          throw new Error('Cannot delete recipe: it is currently used in meal plans. Please remove it from meal plans first.');
+        }
+        throw error;
+      }
+      
+      return true;
+    } catch (error) {
       console.error('Error deleting recipe:', error);
       throw error;
     }
-    
-    return true;
   }
 
   // Meal plan methods
@@ -233,15 +243,30 @@ class SupabaseService {
   }
 
   async addMealToPlan(date: string, mealType: 'breakfast' | 'lunch' | 'dinner', recipeId: string): Promise<void> {
-    const { error } = await supabase
-      .from('meal_plans')
-      .upsert({
-        date,
-        meal_type: mealType,
-        recipe_id: recipeId
-      });
-    
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from('meal_plans')
+        .upsert({
+          date,
+          meal_type: mealType,
+          recipe_id: recipeId
+        });
+      
+      if (error) {
+        console.error('Error adding meal to plan:', error);
+        // Check for validation errors from triggers
+        if (error.message.includes('past date')) {
+          throw new Error('Cannot create meal plan for past dates.');
+        }
+        if (error.message.includes('Invalid meal_type')) {
+          throw new Error('Invalid meal type. Must be breakfast, lunch, or dinner.');
+        }
+        throw error;
+      }
+      
+      // Note: Ingredients will be automatically added to shopping list by the database trigger
+      console.log('Meal added to plan. Ingredients automatically added to shopping list.');
+    } catch (error) {
       console.error('Error adding meal to plan:', error);
       throw error;
     }
@@ -294,6 +319,7 @@ class SupabaseService {
     return data;
   }
 
+  // Note: This method is now less needed since ingredients are automatically added by triggers
   async addRecipeIngredientsToShoppingList(recipe: Recipe): Promise<void> {
     const existingItems = await this.getShoppingList();
     const existingNames = new Set(existingItems.map(item => item.name.toLowerCase()));
