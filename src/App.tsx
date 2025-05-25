@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Recipes from "./pages/Recipes";
 import RecipeDetail from "./pages/RecipeDetail";
+import NewRecipe from "./pages/NewRecipe";
 import MealPlanner from "./pages/MealPlanner";
 import ShoppingList from "./pages/ShoppingList";
 import NotFound from "./pages/NotFound";
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="recipes" element={<Recipes />} />
+            <Route path="recipes/new" element={<NewRecipe />} />
             <Route path="recipes/:id" element={<RecipeDetail />} />
             <Route path="meal-planner" element={<MealPlanner />} />
             <Route path="shopping-list" element={<ShoppingList />} />
