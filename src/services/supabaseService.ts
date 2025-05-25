@@ -40,6 +40,45 @@ export interface ShoppingItem {
   created_at?: string;
 }
 
+// Helper function to safely parse JSON data
+const safeParseArray = (data: any): string[] => {
+  if (Array.isArray(data)) return data;
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const safeParseNutrition = (data: any) => {
+  const defaultNutrition = { calories: 0, protein: '0g', carbs: '0g', fat: '0g', fiber: '0g' };
+  
+  if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+    return {
+      calories: typeof data.calories === 'number' ? data.calories : 0,
+      protein: typeof data.protein === 'string' ? data.protein : '0g',
+      carbs: typeof data.carbs === 'string' ? data.carbs : '0g',
+      fat: typeof data.fat === 'string' ? data.fat : '0g',
+      fiber: typeof data.fiber === 'string' ? data.fiber : '0g',
+    };
+  }
+  
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data);
+      return safeParseNutrition(parsed);
+    } catch {
+      return defaultNutrition;
+    }
+  }
+  
+  return defaultNutrition;
+};
+
 class SupabaseService {
   // Recipe methods
   async getRecipes(): Promise<Recipe[]> {
@@ -55,9 +94,9 @@ class SupabaseService {
     
     return data.map(recipe => ({
       ...recipe,
-      ingredients: recipe.ingredients || [],
-      instructions: recipe.instructions || [],
-      nutrition: recipe.nutrition || { calories: 0, protein: '0g', carbs: '0g', fat: '0g', fiber: '0g' }
+      ingredients: safeParseArray(recipe.ingredients),
+      instructions: safeParseArray(recipe.instructions),
+      nutrition: safeParseNutrition(recipe.nutrition)
     }));
   }
 
@@ -77,9 +116,9 @@ class SupabaseService {
     
     return {
       ...data,
-      ingredients: data.ingredients || [],
-      instructions: data.instructions || [],
-      nutrition: data.nutrition || { calories: 0, protein: '0g', carbs: '0g', fat: '0g', fiber: '0g' }
+      ingredients: safeParseArray(data.ingredients),
+      instructions: safeParseArray(data.instructions),
+      nutrition: safeParseNutrition(data.nutrition)
     };
   }
 
@@ -109,9 +148,9 @@ class SupabaseService {
     
     return {
       ...data,
-      ingredients: data.ingredients || [],
-      instructions: data.instructions || [],
-      nutrition: data.nutrition || { calories: 0, protein: '0g', carbs: '0g', fat: '0g', fiber: '0g' }
+      ingredients: safeParseArray(data.ingredients),
+      instructions: safeParseArray(data.instructions),
+      nutrition: safeParseNutrition(data.nutrition)
     };
   }
 
@@ -144,9 +183,9 @@ class SupabaseService {
     
     return {
       ...data,
-      ingredients: data.ingredients || [],
-      instructions: data.instructions || [],
-      nutrition: data.nutrition || { calories: 0, protein: '0g', carbs: '0g', fat: '0g', fiber: '0g' }
+      ingredients: safeParseArray(data.ingredients),
+      instructions: safeParseArray(data.instructions),
+      nutrition: safeParseNutrition(data.nutrition)
     };
   }
 
@@ -182,13 +221,13 @@ class SupabaseService {
     return data.map(plan => ({
       id: plan.id,
       date: plan.date,
-      meal_type: plan.meal_type,
+      meal_type: plan.meal_type as 'breakfast' | 'lunch' | 'dinner',
       recipe_id: plan.recipe_id,
       recipe: plan.recipes ? {
         ...plan.recipes,
-        ingredients: plan.recipes.ingredients || [],
-        instructions: plan.recipes.instructions || [],
-        nutrition: plan.recipes.nutrition || { calories: 0, protein: '0g', carbs: '0g', fat: '0g', fiber: '0g' }
+        ingredients: safeParseArray(plan.recipes.ingredients),
+        instructions: safeParseArray(plan.recipes.instructions),
+        nutrition: safeParseNutrition(plan.recipes.nutrition)
       } : null
     }));
   }
