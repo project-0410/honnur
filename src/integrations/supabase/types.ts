@@ -9,7 +9,113 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      meal_plans: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          meal_type: string
+          recipe_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          meal_type: string
+          recipe_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          meal_type?: string
+          recipe_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plans_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          category: string | null
+          cook_time: string | null
+          created_at: string
+          description: string | null
+          difficulty: string | null
+          id: string
+          image: string | null
+          ingredients: Json | null
+          instructions: Json | null
+          name: string
+          nutrition: Json | null
+          prep_time: string | null
+          servings: number | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          cook_time?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          image?: string | null
+          ingredients?: Json | null
+          instructions?: Json | null
+          name: string
+          nutrition?: Json | null
+          prep_time?: string | null
+          servings?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          cook_time?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          image?: string | null
+          ingredients?: Json | null
+          instructions?: Json | null
+          name?: string
+          nutrition?: Json | null
+          prep_time?: string | null
+          servings?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shopping_items: {
+        Row: {
+          category: string | null
+          completed: boolean | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          completed?: boolean | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          completed?: boolean | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

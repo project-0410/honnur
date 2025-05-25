@@ -17,23 +17,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Filter, Plus, Search } from "lucide-react";
-import { storageService, Recipe } from "@/services/storage";
+import { supabaseService, Recipe } from "@/services/supabaseService";
+import { useToast } from "@/hooks/use-toast";
 
 const categories = ["All", "Main Course", "Salad", "Breakfast", "Dessert", "Beverage"];
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("name");
+  const { toast } = useToast();
 
   useEffect(() => {
     loadRecipes();
   }, []);
 
-  const loadRecipes = () => {
-    const loadedRecipes = storageService.getRecipes();
-    setRecipes(loadedRecipes);
+  const loadRecipes = async () => {
+    try {
+      setLoading(true);
+      const loadedRecipes = await supabaseService.getRecipes();
+      setRecipes(loadedRecipes);
+    } catch (error) {
+      console.error('Error loading recipes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load recipes. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
   const filteredRecipes = recipes.filter(recipe => {
@@ -47,10 +62,18 @@ const Recipes = () => {
     if (sortBy === "name") {
       return a.name.localeCompare(b.name);
     } else if (sortBy === "time") {
-      return a.prepTime.localeCompare(b.prepTime);
+      return a.prep_time.localeCompare(b.prep_time);
     }
     return 0;
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading recipes...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -123,7 +146,7 @@ const Recipes = () => {
                   <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                     {recipe.category}
                   </span>
-                  <span className="text-xs text-muted-foreground">{recipe.prepTime}</span>
+                  <span className="text-xs text-muted-foreground">{recipe.prep_time}</span>
                 </div>
                 <h3 className="font-semibold text-lg mb-1">{recipe.name}</h3>
                 <p className="text-sm text-muted-foreground line-clamp-2">{recipe.description}</p>
@@ -133,7 +156,7 @@ const Recipes = () => {
         ))}
       </div>
       
-      {filteredRecipes.length === 0 && (
+      {filteredRecipes.length === 0 && !loading && (
         <div className="text-center py-12">
           <h3 className="text-xl font-semibold mb-2">No recipes found</h3>
           <p className="text-muted-foreground">Try adjusting your search or filters</p>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, Plus, Minus } from "lucide-react";
-import { storageService } from "@/services/storage";
+import { supabaseService } from "@/services/supabaseService";
 import { useToast } from "@/hooks/use-toast";
 
 const categories = ["Main Course", "Salad", "Breakfast", "Dessert", "Beverage", "Appetizer", "Side Dish"];
@@ -17,13 +16,14 @@ const difficulties = ["Easy", "Medium", "Hard"];
 const NewRecipe = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     image: "",
-    prepTime: "",
-    cookTime: "",
+    prep_time: "",
+    cook_time: "",
     servings: 1,
     category: "",
     difficulty: "",
@@ -91,7 +91,7 @@ const NewRecipe = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation
@@ -126,18 +126,22 @@ const NewRecipe = () => {
     };
 
     try {
-      const savedRecipe = storageService.addRecipe(newRecipe);
+      setIsSubmitting(true);
+      const savedRecipe = await supabaseService.addRecipe(newRecipe);
       toast({
         title: "Success!",
         description: `${savedRecipe.name} has been added to your recipes.`
       });
       navigate("/recipes");
     } catch (error) {
+      console.error('Error saving recipe:', error);
       toast({
         title: "Error",
         description: "Failed to save recipe. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -205,8 +209,8 @@ const NewRecipe = () => {
                   <Label htmlFor="prepTime">Prep Time</Label>
                   <Input
                     id="prepTime"
-                    value={formData.prepTime}
-                    onChange={(e) => handleInputChange("prepTime", e.target.value)}
+                    value={formData.prep_time}
+                    onChange={(e) => handleInputChange("prep_time", e.target.value)}
                     placeholder="15 min"
                   />
                 </div>
@@ -215,8 +219,8 @@ const NewRecipe = () => {
                   <Label htmlFor="cookTime">Cook Time</Label>
                   <Input
                     id="cookTime"
-                    value={formData.cookTime}
-                    onChange={(e) => handleInputChange("cookTime", e.target.value)}
+                    value={formData.cook_time}
+                    onChange={(e) => handleInputChange("cook_time", e.target.value)}
                     placeholder="30 min"
                   />
                 </div>
@@ -392,8 +396,8 @@ const NewRecipe = () => {
         </Card>
 
         <div className="flex gap-4">
-          <Button type="submit" className="flex-1">
-            Create Recipe
+          <Button type="submit" className="flex-1" disabled={isSubmitting}>
+            {isSubmitting ? "Creating Recipe..." : "Create Recipe"}
           </Button>
           <Button type="button" variant="outline" onClick={() => navigate("/recipes")}>
             Cancel
